@@ -4,6 +4,8 @@ A simple, reliable, distributed job scheduler for Go, backed by Redis.
 
 Enqueue background jobs from anywhere, process them across a fleet of workers, and schedule recurring work with cron. Jobs survive worker crashes and are retried automatically.
 
+**Documentation:** https://mohamedaklamaash.github.io/relay/
+
 ## Features
 
 - At-least-once delivery with automatic crash recovery (visibility-timeout leases)
