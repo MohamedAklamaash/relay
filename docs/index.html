@@ -142,6 +142,10 @@ section{padding:72px 0;position:relative}
 .recipes{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
 .recipe h3{font-family:"Space Grotesk";font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:9px}
 .recipe h3 .b{width:6px;height:18px;border-radius:3px;background:var(--grad)}
+.dnote{padding:2px 16px 16px;font-size:13.5px;color:var(--muted)}
+.dnote b{color:var(--text);font-weight:600}
+.deploy-foot{text-align:center;max-width:700px;margin:28px auto 0;color:var(--muted);font-size:14.5px}
+.deploy-foot code{font-family:var(--mono);font-size:12.5px;color:var(--cyan)}
 
 /* architecture */
 .arch{display:flex;align-items:stretch;gap:14px;flex-wrap:wrap;justify-content:center}
@@ -201,6 +205,7 @@ code[class*=language-],pre[class*=language-]{color:#cfcae6;text-shadow:none!impo
       <a href="#features">Features</a>
       <a href="#quickstart">Quickstart</a>
       <a href="#recipes">Recipes</a>
+      <a href="#deploy">Deploy</a>
       <a href="#architecture">Architecture</a>
       <a href="#compare">Compare</a>
       <a class="nav-cta" href="https://github.com/MohamedAklamaash/relay" target="_blank" rel="noopener">
@@ -371,6 +376,39 @@ relay cancel &lt;task-id&gt;
 relay pause low</code></pre>
       </div>
     </div>
+  </div>
+</section>
+
+<section id="deploy">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-tag">Deployment</div>
+      <h2>Embed it, or split it out</h2>
+      <p>relay is a library, not a daemon — run the worker inside your app, or as its own service. Same code, your call.</p>
+    </div>
+    <div class="recipes">
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Embedded — one process</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">// main.go — your API also runs the workers
+client := relay.NewClient(opt)
+srv := relay.NewServer(opt, relay.Config{Concurrency: 10})
+
+srv.Start(mux)                       // non-blocking
+http.ListenAndServe(":8080", api(client))</code></pre>
+        <p class="dnote"><b>Simplest deploy.</b> One binary, one rollout. Jobs share CPU and memory with request handling — ideal for dev and small services.</p>
+      </div>
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Dedicated worker — its own service</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">// cmd/worker/main.go — this binary only runs jobs
+srv := relay.NewServer(opt, relay.Config{Concurrency: 20})
+srv.Run(mux)                         // blocks; drains on SIGTERM
+
+// your API process only enqueues:
+//   client := relay.NewClient(opt)</code></pre>
+        <p class="dnote"><b>Scale &amp; isolate independently.</b> Add worker replicas without touching the web tier; a job leak can't take down request handling. Recommended at scale.</p>
+      </div>
+    </div>
+    <p class="deploy-foot">Both point at the same Redis. Start embedded, then graduate to a dedicated worker when you need independent scaling or isolation — no rewrite, just a different <code>main</code>. Unlike Celery, the separate process is an option, not a requirement.</p>
   </div>
 </section>
 
