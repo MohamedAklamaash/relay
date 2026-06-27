@@ -80,8 +80,23 @@ nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
 .install button{background:none;border:0;color:var(--faint);cursor:pointer;display:flex;transition:color .2s}
 .install button:hover{color:var(--text)}
 
-/* hero logo mark big */
-.hero-mark{width:108px;height:108px;margin:0 auto 30px;filter:drop-shadow(0 16px 40px rgba(139,92,246,.45))}
+/* hero logo lockup */
+.hero-logo{display:flex;flex-direction:column;align-items:center;gap:16px;margin-bottom:30px}
+.orb{position:relative;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 38%,rgba(139,92,246,.30),rgba(13,11,22,.85) 70%);
+  border:1px solid var(--border-2);
+  box-shadow:0 0 0 1px rgba(139,92,246,.14),0 24px 70px -18px rgba(139,92,246,.55),inset 0 1px 0 rgba(255,255,255,.07)}
+.orb>svg{width:58px;height:58px;position:relative;z-index:2;transform:translateX(-3px)}
+.orb .ring{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(139,92,246,.45);animation:pulsering 3s ease-out infinite}
+.orb .ring:nth-of-type(2){animation-delay:1.5s}
+@keyframes pulsering{0%{transform:scale(.85);opacity:.7}100%{transform:scale(1.9);opacity:0}}
+.orb .a1{animation:sig 2.4s ease-in-out infinite}
+.orb .a2{animation:sig 2.4s ease-in-out infinite .35s}
+.orb .a3{animation:sig 2.4s ease-in-out infinite .7s}
+@keyframes sig{0%,100%{opacity:.25}45%{opacity:1}}
+.wordmark{font-family:"Space Grotesk";font-weight:700;font-size:28px;letter-spacing:-.03em;
+  background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+@media(prefers-reduced-motion:reduce){.orb .ring,.orb .a1,.orb .a2,.orb .a3{animation:none}}
 
 /* sections */
 section{padding:72px 0;position:relative}
@@ -201,7 +216,13 @@ code[class*=language-],pre[class*=language-]{color:#cfcae6;text-shadow:none!impo
 
 <header id="top" class="hero">
   <div class="wrap">
-    <svg class="hero-mark" viewBox="0 0 48 48"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="24" r="4.5" fill="url(#hg)"/><path d="M25 15 A12 12 0 0 1 25 33" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M31 10 A19 19 0 0 1 31 38" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0.55"/><path d="M37 6 A26 26 0 0 1 37 42" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0.28"/></svg>
+    <div class="hero-logo">
+      <div class="orb">
+        <span class="ring"></span><span class="ring"></span>
+        <svg viewBox="0 0 48 48"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="24" r="4.5" fill="url(#hg)"/><path class="a1" d="M25 15 A12 12 0 0 1 25 33" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round"/><path class="a2" d="M31 10 A19 19 0 0 1 31 38" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round"/><path class="a3" d="M37 6 A26 26 0 0 1 37 42" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div class="wordmark">relay</div>
+    </div>
     <div class="pill"><span class="dot"></span> v0.1.0 — backed by Redis</div>
     <h1>Background jobs &amp; scheduling<br/>for <span class="grad-text">Go</span>.</h1>
     <p class="lead">A simple, reliable, distributed job scheduler — delayed tasks, cron, retries, and at-least-once delivery, in a single import.</p>
