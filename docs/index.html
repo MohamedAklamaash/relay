@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>relay — distributed job scheduler for Go</title>
+<meta name="description" content="relay is a simple, reliable, distributed job scheduler for Go backed by Redis: delayed jobs, cron, retries, dedup, and at-least-once delivery." />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0a0912; --bg-2:#0d0b16; --surface:#15121f; --surface-2:#1b1730;
+  --border:#272240; --border-2:#332c52;
+  --text:#ECEAF6; --muted:#A29DBE; --faint:#6E698A;
+  --primary:#8B5CF6; --indigo:#6366F1; --cyan:#22D3EE; --teal:#2DD4BF;
+  --green:#34D399; --amber:#FBBF24;
+  --grad:linear-gradient(135deg,#8B5CF6 0%,#22D3EE 100%);
+  --grad-soft:linear-gradient(135deg,rgba(139,92,246,.18),rgba(34,211,238,.12));
+  --radius:16px; --maxw:1120px;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);
+  line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+.bg-fx{position:fixed;inset:0;z-index:-1;pointer-events:none}
+.bg-fx::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(900px 500px at 80% -5%,rgba(139,92,246,.20),transparent 60%),
+    radial-gradient(700px 500px at 10% 0%,rgba(34,211,238,.12),transparent 55%);
+}
+.bg-fx::after{
+  content:"";position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:56px 56px;
+  -webkit-mask-image:radial-gradient(circle at 50% 0%,#000 0%,transparent 70%);
+  mask-image:radial-gradient(circle at 50% 0%,#000 0%,transparent 70%);
+}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* nav */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+  background:rgba(10,9,18,.72);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:11px;font-family:"Space Grotesk";font-weight:700;font-size:19px;letter-spacing:-.02em}
+.brand svg{width:30px;height:30px}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{color:var(--muted);font-size:14px;font-weight:500;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border:1px solid var(--border-2);
+  border-radius:10px;font-size:13px;font-weight:600;color:var(--text);transition:.2s;background:var(--surface)}
+.nav-cta:hover{border-color:var(--primary);box-shadow:0 0 0 3px rgba(139,92,246,.12)}
+.nav-toggle{display:none;background:none;border:0;color:var(--text);cursor:pointer}
+
+/* hero */
+.hero{text-align:center;padding:96px 0 64px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--border-2);
+  border-radius:999px;font-size:13px;color:var(--muted);background:var(--surface);margin-bottom:28px}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+.hero h1{font-family:"Space Grotesk";font-size:clamp(40px,6.4vw,72px);line-height:1.04;
+  font-weight:700;letter-spacing:-.035em;margin-bottom:22px}
+.hero p.lead{font-size:clamp(17px,2.3vw,20px);color:var(--muted);max-width:660px;margin:0 auto 36px}
+.cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:30px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:13px 24px;border-radius:12px;font-weight:600;font-size:15px;transition:.2s;border:1px solid transparent}
+.btn-primary{background:var(--grad);color:#0a0912}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 32px -10px rgba(139,92,246,.6)}
+.btn-ghost{border-color:var(--border-2);background:var(--surface);color:var(--text)}
+.btn-ghost:hover{border-color:var(--primary)}
+.install{display:inline-flex;align-items:center;gap:14px;font-family:var(--mono);font-size:14px;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text)}
+.install .pmt{color:var(--cyan)}
+.install button{background:none;border:0;color:var(--faint);cursor:pointer;display:flex;transition:color .2s}
+.install button:hover{color:var(--text)}
+
+/* hero logo mark big */
+.hero-mark{width:108px;height:108px;margin:0 auto 30px;filter:drop-shadow(0 16px 40px rgba(139,92,246,.45))}
+
+/* sections */
+section{padding:72px 0;position:relative}
+.sec-head{text-align:center;max-width:640px;margin:0 auto 52px}
+.sec-tag{font-family:var(--mono);font-size:13px;color:var(--cyan);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
+.sec-head h2{font-family:"Space Grotesk";font-size:clamp(28px,4vw,40px);font-weight:700;letter-spacing:-.03em;margin-bottom:14px}
+.sec-head p{color:var(--muted);font-size:17px}
+
+/* feature grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;transition:.25s;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0;background:var(--grad-soft);opacity:0;transition:.25s}
+.card:hover{border-color:var(--border-2);transform:translateY(-3px)}
+.card:hover::before{opacity:1}
+.card>*{position:relative}
+.ic{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;margin-bottom:16px;
+  background:var(--grad-soft);border:1px solid var(--border-2)}
+.ic svg{width:22px;height:22px;stroke:var(--cyan)}
+.card h3{font-family:"Space Grotesk";font-size:17px;font-weight:600;margin-bottom:7px}
+.card p{font-size:14.5px;color:var(--muted)}
+
+/* code */
+.code-card{background:var(--bg-2);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.code-head{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
+.code-head .dots{display:flex;gap:7px}
+.code-head .dots i{width:11px;height:11px;border-radius:50%;display:block}
+.code-head .fname{font-family:var(--mono);font-size:12.5px;color:var(--faint)}
+.code-card pre{margin:0;padding:20px;overflow-x:auto;font-size:13.5px;line-height:1.7}
+.code-card pre code{font-family:var(--mono)!important;background:none!important}
+.copy{background:none;border:1px solid var(--border-2);color:var(--faint);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer;transition:.2s}
+.copy:hover{color:var(--text);border-color:var(--primary)}
+
+/* tabs */
+.tabs{max-width:760px;margin:0 auto}
+.tab-btns{display:flex;gap:8px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+.tab-btns button{background:var(--surface);border:1px solid var(--border);color:var(--muted);
+  padding:9px 18px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;transition:.2s;font-family:inherit}
+.tab-btns button.on{color:var(--text);border-color:var(--primary);background:var(--grad-soft)}
+.tab-pane{display:none}.tab-pane.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* recipes 2col */
+.recipes{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.recipe h3{font-family:"Space Grotesk";font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:9px}
+.recipe h3 .b{width:6px;height:18px;border-radius:3px;background:var(--grad)}
+
+/* architecture */
+.arch{display:flex;align-items:stretch;gap:14px;flex-wrap:wrap;justify-content:center}
+.node{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center}
+.node .t{font-family:"Space Grotesk";font-weight:600;font-size:15px;margin-bottom:6px}
+.node .d{font-size:13px;color:var(--muted)}
+.node.accent{border-color:var(--border-2);background:var(--grad-soft)}
+.arrow{display:grid;place-items:center;color:var(--faint);font-size:22px}
+.keys{margin-top:26px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.keys .k{display:flex;gap:12px;align-items:baseline;background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:12px 15px}
+.keys .k code{font-family:var(--mono);font-size:12.5px;color:var(--cyan);white-space:nowrap}
+.keys .k span{font-size:13px;color:var(--muted)}
+
+/* compare */
+.cmp{max-width:760px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.cmp table{width:100%;border-collapse:collapse}
+.cmp th,.cmp td{padding:14px 18px;text-align:left;font-size:14px;border-bottom:1px solid var(--border)}
+.cmp th{font-family:"Space Grotesk";font-weight:600;color:var(--text);background:var(--bg-2)}
+.cmp td:first-child{color:var(--muted)}
+.cmp tr:last-child td{border-bottom:0}
+.yes{color:var(--green);font-weight:600}.no{color:var(--faint)}
+
+/* footer */
+footer{border-top:1px solid var(--border);padding:48px 0 40px;margin-top:40px}
+.foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px}
+.foot .brand{font-size:17px}
+.foot p{color:var(--faint);font-size:13.5px}
+.foot-links{display:flex;gap:22px}.foot-links a{color:var(--muted);font-size:14px}.foot-links a:hover{color:var(--text)}
+
+@media(max-width:820px){
+  .grid,.recipes,.keys{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .arch{flex-direction:column}.arrow{transform:rotate(90deg)}
+}
+
+/* syntax tokens tuned to palette */
+code[class*=language-],pre[class*=language-]{color:#cfcae6;text-shadow:none!important}
+.token.comment{color:#6E698A;font-style:italic}
+.token.keyword,.token.boolean{color:#A78BFA}
+.token.string,.token.char{color:#5EEAD4}
+.token.function{color:#22D3EE}
+.token.number{color:#FBBF24}
+.token.operator,.token.punctuation{color:#8A85A8;background:none!important}
+.token.builtin,.token.class-name{color:#67E8F9}
+</style>
+</head>
+<body>
+<div class="bg-fx"></div>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 48 48"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="24" r="4.5" fill="url(#lg)"/><path d="M25 15 A12 12 0 0 1 25 33" stroke="url(#lg)" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M31 10 A19 19 0 0 1 31 38" stroke="url(#lg)" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.55"/></svg>
+      relay
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#recipes">Recipes</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#compare">Compare</a>
+      <a class="nav-cta" href="https://github.com/MohamedAklamaash/relay" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49v-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.63.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.27 2.75 1.05a9.4 9.4 0 0 1 5 0c1.91-1.32 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9v2.81c0 .27.18.6.69.49A10.26 10.26 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>
+        GitHub
+      </a>
+    </div>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').style.display='flex'">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+  </div>
+</nav>
+
+<header id="top" class="hero">
+  <div class="wrap">
+    <svg class="hero-mark" viewBox="0 0 48 48"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="24" r="4.5" fill="url(#hg)"/><path d="M25 15 A12 12 0 0 1 25 33" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M31 10 A19 19 0 0 1 31 38" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0.55"/><path d="M37 6 A26 26 0 0 1 37 42" stroke="url(#hg)" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0.28"/></svg>
+    <div class="pill"><span class="dot"></span> v0.1.0 — backed by Redis</div>
+    <h1>Background jobs &amp; scheduling<br/>for <span class="grad-text">Go</span>.</h1>
+    <p class="lead">A simple, reliable, distributed job scheduler — delayed tasks, cron, retries, and at-least-once delivery, in a single import.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#quickstart">Get started →</a>
+      <a class="btn btn-ghost" href="https://github.com/MohamedAklamaash/relay" target="_blank" rel="noopener">Star on GitHub</a>
+    </div>
+    <div class="install">
+      <span><span class="pmt">$</span> go get github.com/MohamedAklamaash/relay</span>
+      <button onclick="copyText('go get github.com/MohamedAklamaash/relay',this)" aria-label="copy">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-tag">Capabilities</div>
+      <h2>Everything a job queue needs</h2>
+      <p>Reliable primitives that survive crashes, redeploys, and load — without a heavyweight framework.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><h3>At-least-once delivery</h3><p>Every task runs to completion. Idempotent handlers are the only contract.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Delayed &amp; cron jobs</h3><p>Run later with <code>ProcessIn</code>, or on a schedule with standard cron specs.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div><h3>Retries &amp; dead-letter</h3><p>Exponential backoff with jitter; exhausted tasks land in an archive you can replay.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></div><h3>Crash recovery</h3><p>Visibility-timeout leases reclaim tasks from workers that die mid-flight.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div><h3>Priority queues</h3><p>Weighted, strict, or paused — route critical work ahead of the rest.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></div><h3>Dedup &amp; cancellation</h3><p>Suppress duplicate enqueues with <code>Unique</code>; cancel running tasks remotely.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div><h3>Prometheus metrics</h3><p>Processed, failed, retried, in-flight, and latency — exported out of the box.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></div><h3>Built-in CLI</h3><p>Inspect queues, list states, requeue, pause, and cancel from your terminal.</p></div>
+      <div class="card"><div class="ic"><svg fill="none" stroke-width="2" viewBox="0 0 24 24"><path d="M4 17V7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3Z"/><path d="M9 9h6v6H9z"/></svg></div><h3>One dependency</h3><p>Just Redis. No broker to operate, no result backend to wire up.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-tag">Quickstart</div>
+      <h2>Three pieces, one import</h2>
+      <p>A client enqueues, a server processes, a scheduler fires cron. Point them all at the same Redis.</p>
+    </div>
+    <div class="tabs">
+      <div class="tab-btns">
+        <button class="on" data-tab="producer">Producer</button>
+        <button data-tab="worker">Worker</button>
+        <button data-tab="scheduler">Scheduler</button>
+      </div>
+      <div class="tab-pane on" data-pane="producer">
+        <div class="code-card">
+          <div class="code-head"><div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div><span class="fname">producer.go</span><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">client := relay.NewClient(relay.RedisClientOpt{Addr: "127.0.0.1:6379"})
+defer client.Close()
+
+// fire-and-forget
+client.Enqueue(relay.NewTask("email:send", []byte(`{"to":"a@b.com"}`)))
+
+// run in 10 minutes, retry up to 5 times
+client.Enqueue(
+    relay.NewTask("report:build", []byte(`{"month":"june"}`)),
+    relay.ProcessIn(10*time.Minute),
+    relay.MaxRetry(5),
+)</code></pre>
+        </div>
+      </div>
+      <div class="tab-pane" data-pane="worker">
+        <div class="code-card">
+          <div class="code-head"><div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div><span class="fname">worker.go</span><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">srv := relay.NewServer(relay.RedisClientOpt{Addr: "127.0.0.1:6379"}, relay.Config{
+    Concurrency: 10,
+    Queues:      map[string]int{"critical": 6, "default": 3, "low": 1},
+})
+
+mux := relay.NewServeMux()
+mux.HandleFunc("email:send", func(ctx context.Context, t *relay.Task) error {
+    return sendEmail(t.Payload())
+})
+
+srv.Run(mux) // blocks; drains gracefully on SIGTERM</code></pre>
+        </div>
+      </div>
+      <div class="tab-pane" data-pane="scheduler">
+        <div class="code-card">
+          <div class="code-head"><div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div><span class="fname">scheduler.go</span><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">scheduler := relay.NewScheduler(relay.RedisClientOpt{Addr: "127.0.0.1:6379"}, nil)
+
+// run every hour, on the hour
+scheduler.Register("0 * * * *", relay.NewTask("report:build", nil))
+
+// safe to run several instances — duplicate fires collapse to one
+scheduler.Run()</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="recipes">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-tag">Recipes</div>
+      <h2>Common patterns</h2>
+      <p>Every feature is an option or a one-liner. Mix and match per task.</p>
+    </div>
+    <div class="recipes">
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Deduplicate enqueues</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">// reject identical tasks within the window
+client.Enqueue(task, relay.Unique(time.Hour))</code></pre>
+      </div>
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Timeouts &amp; deadlines</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">client.Enqueue(task,
+    relay.Timeout(30*time.Second),
+    relay.Queue("critical"),
+)</code></pre>
+      </div>
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Skip retry / archive now</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">mux.HandleFunc("charge", func(ctx context.Context, t *relay.Task) error {
+    if invalid(t) {
+        return relay.SkipRetry // straight to the archive
+    }
+    return charge(t)
+})</code></pre>
+      </div>
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Cancel a running task</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">insp := relay.NewInspector(relay.RedisClientOpt{Addr: "127.0.0.1:6379"})
+insp.CancelTask(taskID) // cancels the handler's ctx
+</code></pre>
+      </div>
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Expose metrics</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-go">http.Handle("/metrics", relay.MetricsHandler())
+go http.ListenAndServe(":2112", nil)</code></pre>
+      </div>
+      <div class="recipe code-card">
+        <div class="code-head"><h3 style="margin:0;font-size:14px"><span class="b" style="display:inline-block"></span> Manage from the CLI</h3><button class="copy" onclick="copyCode(this)">Copy</button></div>
+<pre><code class="language-bash">relay stats
+relay ls default retry
+relay run default &lt;task-id&gt;   # requeue
+relay cancel &lt;task-id&gt;
+relay pause low</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-tag">Under the hood</div>
+      <h2>How a task flows</h2>
+      <p>Redis lists and sorted sets, mutated by atomic Lua scripts. Nothing is lost when a worker dies.</p>
+    </div>
+    <div class="arch">
+      <div class="node"><div class="t">Client</div><div class="d">Enqueue writes the task and pushes its ID</div></div>
+      <div class="arrow">→</div>
+      <div class="node accent"><div class="t">pending</div><div class="d">Ready queue, per priority</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Worker</div><div class="d">Leases, runs your handler, heartbeats</div></div>
+      <div class="arrow">→</div>
+      <div class="node accent"><div class="t">done / retry / archive</div><div class="d">Ack, back off, or dead-letter</div></div>
+    </div>
+    <div class="keys">
+      <div class="k"><code>{q}:pending</code><span>list of ready task IDs</span></div>
+      <div class="k"><code>{q}:scheduled</code><span>zset by run-at — delayed jobs</span></div>
+      <div class="k"><code>{q}:lease</code><span>zset by expiry — crash recovery</span></div>
+      <div class="k"><code>{q}:retry</code><span>zset by next-attempt time</span></div>
+      <div class="k"><code>{q}:archived</code><span>retry-exhausted dead letters</span></div>
+      <div class="k"><code>{q}:unique:*</code><span>NX locks for dedup</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-tag">Positioning</div>
+      <h2>Where relay fits</h2>
+      <p>The same family as Celery and asynq — a lean, Go-native, Redis-only slice of it.</p>
+    </div>
+    <div class="cmp">
+      <table>
+        <tr><th>Capability</th><th>relay</th><th>Celery</th></tr>
+        <tr><td>Language</td><td>Go (embedded library)</td><td>Python (worker processes)</td></tr>
+        <tr><td>Broker</td><td>Redis</td><td>Redis / RabbitMQ</td></tr>
+        <tr><td>Delayed + cron</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Retries + dead-letter</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>At-least-once delivery</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Multi-instance scheduler, no leader</td><td class="yes">✓</td><td class="no">beat is single</td></tr>
+        <tr><td>Result backend</td><td class="no">—</td><td class="yes">✓</td></tr>
+        <tr><td>Workflow chains / chords</td><td class="no">— (roadmap)</td><td class="yes">✓</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <a class="brand" href="#top">
+        <svg viewBox="0 0 48 48"><defs><linearGradient id="fg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/></linearGradient></defs><circle cx="16" cy="24" r="4.5" fill="url(#fg)"/><path d="M25 15 A12 12 0 0 1 25 33" stroke="url(#fg)" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M31 10 A19 19 0 0 1 31 38" stroke="url(#fg)" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.55"/></svg>
+        relay
+      </a>
+      <p style="margin-top:10px">Distributed job scheduling for Go · MIT licensed</p>
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/MohamedAklamaash/relay" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/MohamedAklamaash/relay/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="#quickstart">Docs</a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-go.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+<script>
+document.querySelectorAll('.tab-btns button').forEach(b=>{
+  b.onclick=()=>{
+    const t=b.dataset.tab;
+    document.querySelectorAll('.tab-btns button').forEach(x=>x.classList.toggle('on',x===b));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('on',p.dataset.pane===t));
+  };
+});
+function copyText(txt,el){navigator.clipboard.writeText(txt);flash(el);}
+function copyCode(btn){
+  const code=btn.closest('.code-card').querySelector('code').innerText;
+  navigator.clipboard.writeText(code);
+  const o=btn.innerText;btn.innerText='Copied';setTimeout(()=>btn.innerText=o,1200);
+}
+function flash(el){const s=el.style.color;el.style.color='#34D399';setTimeout(()=>el.style.color=s,1000);}
+</script>
+</body>
+</html>
